@@ -78,8 +78,14 @@ jobs:
             sev=$(echo "$advisory" | jq -r '.[0].severity // empty' 2>/dev/null) || sev=""
             ghsa=$(echo "$advisory" | jq -r '.[0].ghsa_id // empty' 2>/dev/null) || ghsa=""
             cvss=$(echo "$advisory" | jq -r '.[0].cvss.score // empty' 2>/dev/null) || cvss=""
+            pkg_name=$(echo "$advisory" | jq -r '.[0].vulnerabilities[0].package.name // empty' 2>/dev/null) || pkg_name=""
 
-            echo "  severity='${sev}' ghsa='${ghsa}' cvss='${cvss}'"
+            echo "  severity='${sev}' ghsa='${ghsa}' cvss='${cvss}' pkg_name='${pkg_name}'"
+
+            if [ "${pkg_name}" != "${pkg}" ]; then
+              echo "  Package name mismatch: expected ${pkg}, got ${pkg_name}. Skipping."
+              sev=""
+            fi
 
             if [ "${sev}" = "critical" ]; then
               IS_CRITICAL=1
