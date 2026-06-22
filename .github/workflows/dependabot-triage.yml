@@ -3,20 +3,6 @@ name: Dependabot PR Triage
 on:
   pull_request:
     types: [opened]
-  workflow_dispatch:
-    inputs:
-      dependency_names:
-        description: 'Dependency names to test (comma-separated)'
-        required: true
-        default: 'handlebars'
-      package_ecosystem:
-        description: 'Package ecosystem'
-        required: true
-        default: 'npm_and_yarn'
-      pr_number:
-        description: 'PR number to comment/close (optional)'
-        required: false
-        default: ''
 
 permissions:
   pull-requests: write
@@ -25,11 +11,10 @@ permissions:
 jobs:
   triage:
     runs-on: ubuntu-latest
-    if: github.actor == 'dependabot[bot]' || github.event_name == 'workflow_dispatch'
+    if: github.actor == 'dependabot[bot]'
     steps:
       - name: Fetch Dependabot metadata
         id: meta
-        if: github.event_name != 'workflow_dispatch'
         uses: dependabot/fetch-metadata@v2
         with:
           # alert-lookup は GITHUB_TOKEN では機能しない（Dependabot alerts API へのアクセスに
@@ -41,11 +26,11 @@ jobs:
       - name: Triage PR based on severity
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.inputs.pr_number || github.event.pull_request.number }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
-          DEP_NAMES: ${{ github.event.inputs.dependency_names || steps.meta.outputs.dependency-names }}
-          PKG_ECOSYSTEM: ${{ github.event.inputs.package_ecosystem || steps.meta.outputs.package-ecosystem }}
-          UPDATE_TYPE: ${{ steps.meta.outputs.update-type || 'version-update:semver-patch' }}
+          DEP_NAMES: ${{ steps.meta.outputs.dependency-names }}
+          PKG_ECOSYSTEM: ${{ steps.meta.outputs.package-ecosystem }}
+          UPDATE_TYPE: ${{ steps.meta.outputs.update-type }}
         run: |
           IS_CRITICAL=0
           DETECTED_BY=""
@@ -82,6 +67,8 @@ jobs:
 
             echo "  severity='${sev}' ghsa='${ghsa}' cvss='${cvss}' pkg_name='${pkg_name}'"
 
+            # Advisory Database API の package_name フィルタが不完全な場合があるため、
+            # レスポンス内の package.name が要求したパッケージ名と一致するか確認する
             if [ "${pkg_name}" != "${pkg}" ]; then
               echo "  Package name mismatch: expected ${pkg}, got ${pkg_name}. Skipping."
               sev=""
